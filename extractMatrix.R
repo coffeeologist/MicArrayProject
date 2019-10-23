@@ -13,7 +13,7 @@ extractMatrix <- function (fileRepo, verbose=FALSE, showWarnings=TRUE) {
     length = length(sound)
     if(!is.null(length) && length > max){ max <- length }  }
   
-  mRes <- matrix(nrow = 12, ncol = 60)
+  mRes <- matrix(nrow = 12, ncol = 1200)
   rowCounter = 1
   
   for(fin in files){
@@ -24,13 +24,13 @@ extractMatrix <- function (fileRepo, verbose=FALSE, showWarnings=TRUE) {
     # length is 2,880,000
     snd = data@left
 
-    factor <- length(snd)/60
+    factor <- length(snd)/1200
     
     # cut down the amount of samples
-    intervaledSnd = 60
-    for(i in 1:60){
+    intervaledSnd = 1200
+    for(i in 1:1200){
       end = 0
-      if(60*i+1 > length(snd)){end = length(snd)-1}else{end = factor*(i+1)}
+      if(factor*(i+1) > length(snd)){end = length(snd)-1}else{end = factor*(i+1)}
       range <- snd[(factor*i) : end]
       # print("now considering the subvectors from ")
       # print(factor*i)
@@ -43,7 +43,7 @@ extractMatrix <- function (fileRepo, verbose=FALSE, showWarnings=TRUE) {
     # print(snd)
     mRes[rowCounter, ] <- intervaledSnd
     
-    timeArray <- (0:60)
+    timeArray <- (0:1200)
     #timeArray <- ((0:(length(intervaledSnd)-1))) / (data@samp.rate) * 60
 
     rowCounter = rowCounter + 1
