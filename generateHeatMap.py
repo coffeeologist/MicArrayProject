@@ -61,43 +61,41 @@ def heatMap(path):
     # Compute x^2 + y^2 across a 2D grid
     sourceCSV = pd.read_csv(path)
 
-    # for i in range (0, sourceCSV.shape[0]):
+    for n in range (0, sourceCSV.shape[0]):
 
-    snapShot = sourceCSV.iloc[10, 1:]
+        snapShot = sourceCSV.iloc[n, 1:]
 
-    x, y = np.meshgrid(range(0, 23), range(0, 4))
+        x, y = np.meshgrid(range(0, 23), range(0, 4))
 
-    print(x)
-    # Currently assumed format of the charts:
-    #  12 11 10
-    #   9  8  7
-    #   6  5  4
-    #   3  2  1
-    convertedX = copy.deepcopy(x)
-    for i in range (len(x)):
-        for j in range (len(x[0])):
-            if(x[i][j] <= 6):
-                convertedX[i][j] = 0
-            elif( 7 <= x[i][j] <= 15):
-                convertedX[i][j] = 1
-            else:
-                convertedX[i][j] = 2
-    z = snapShot[12-(3*y+1)-1]
-    for i in range (len(convertedX)):
-        for j in range (len(convertedX[0])):
-            z[i][j] = snapShot[12 - ( 3*(y[i][j]) + (convertedX[i][j])) - 1] 
+        # Currently assumed format of the charts:
+        #  12 11 10
+        #   9  8  7
+        #   6  5  4
+        #   3  2  1
+        convertedX = copy.deepcopy(x)
+        for i in range (len(x)):
+            for j in range (len(x[0])):
+                if(x[i][j] <= 6):
+                    convertedX[i][j] = 0
+                elif( 7 <= x[i][j] <= 15):
+                    convertedX[i][j] = 1
+                else:
+                    convertedX[i][j] = 2
+        z = snapShot[12-(3*y+1)-1]
+        for i in range (len(convertedX)):
+            for j in range (len(convertedX[0])):
+                z[i][j] = snapShot[12 - ( 3*(y[i][j]) + (convertedX[i][j])) - 1] 
 
-    print(z)
-    # Convert this grid to columnar data expected by Altair
-    source = pd.DataFrame({'x': x.ravel(),
-                        'y': y.ravel(),
-                        'z': z.ravel()})
+        # Convert this grid to columnar data expected by Altair
+        source = pd.DataFrame({'x': x.ravel(),
+                            'y': y.ravel(),
+                            'z': z.ravel()})
 
-    # TODO: possibly make the size arguments an optional commandline argument? 
-    resChart = alt.Chart(data=source, height=400, width=600).mark_rect().encode(
-        x='x:O',
-        y='y:O',
-        color='z:Q').configure_axis(labelFontSize=10).configure_scale(barBandPaddingInner=0, bandPaddingInner=0, bandPaddingOuter=0).save('chart' + str(0) + '.png')
+        # TODO: possibly make the size arguments an optional commandline argument? 
+        resChart = alt.Chart(data=source, height=400, width=600).mark_rect(strokeWidth=100).encode(
+            x='x:O',
+            y='y:O',
+            color='z:Q').configure_axis(labelFontSize=10).configure_scale(barBandPaddingInner=0, bandPaddingInner=0, bandPaddingOuter=0).save('chart' + str(n) + '.png')
 
 heatMap(sys.argv[1])
 # generateMatrixFromWav(sys.argv[1])
