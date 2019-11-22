@@ -104,7 +104,7 @@ def findValForEachSeg(labels, path, metric, intervalLen, destCSV):
         totalTime = float(winEnd - winStart)
 
         # Due to annotation limitations, we can only go up to 5mins
-        if(winStart > 300):
+        if(winStart > 1122):
             labelClassification.append("UNDEFINED")
         else:
             labelClassification.append(classify_dump_crossovers(labels, winStart, winEnd))
@@ -116,12 +116,21 @@ def findValForEachSeg(labels, path, metric, intervalLen, destCSV):
     # Save as csv	
     df.to_csv(destCSV, index=False)
 
+def getBaseTable(df):
+    return alt.Chart(df).mark_text().encode(
+        y=alt.Y('row_number:O',axis=None)
+    ).transform_window(
+        row_number='row_number()'
+    ).transform_window(
+        rank='rank(row_number)'
+    ).transform_filter(
+        alt.datum.rank<20
+    )
 
 def drawBoxPlot(pathToCSV):
     df = pd.read_csv(pathToCSV)
     # print(df.to_string());  
     # df = df[df.Label != "A"| df.Label != "D"]
-
 
     toDrop = df[ (df['Label'] != "A") & (df['Label'] != "D") & (df['Label'] != "S")].index
  
@@ -141,8 +150,23 @@ def drawBoxPlot(pathToCSV):
         y='Peak Level'
     )
 
-    alt.hconcat(rms, rmsPeak, peak).save('chart.png', scale_factor=2.0)
+    rms_quantiles = pd.DataFrame(df['RMS Level'].quantile([1, 0.75, 0.5, 0.25, 0]))
+    rmsPeak_quantiles = pd.DataFrame(df['RMS Peak'].quantile([1, 0.75, 0.5, 0.25, 0]))
+    peak_quantiles = pd.DataFrame(df['Peak Level'].quantile([1, 0.75, 0.5, 0.25, 0]))
+    dumped = pd.DataFrame([{'dumped': (df['Label'].value_counts()).values.sum()}])
 
+    rms_base_table = getBaseTable(rms_quantiles)
+    rmsPeak_base_table = getBaseTable(rmsPeak_quantiles)
+    peak_base_table = getBaseTable(peak_quantiles)
+    dumped_base_table = getBaseTable(dumped)
+
+    rms_quant_table = rms_base_table.encode(text='RMS Level:Q').properties(title='RMS Level Quartiles')
+    rmsPeak_quant_table = rmsPeak_base_table.encode(text='RMS Peak:Q').properties(title='RMS Peak Level Quartiles')
+    peak_quant_table = peak_base_table.encode(text='Peak Level').properties(title='Peak Quartiles')
+    dumped_table = dumped_base_table.encode(text='dumped').properties(title='Number of Dumped Intervals')
+    text = alt.hconcat(rmsPeak_quant_table, rmsPeak_quant_table, peak_quant_table, dumped_table) # Combine data tables
+
+    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak), text).save('chart.png', scale_factor=2.0)
 
 # argv[1] = .wav file
 # argv[2] = .csv labels file
