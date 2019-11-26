@@ -127,8 +127,12 @@ def getBaseTable(df):
         alt.datum.rank<20
     )
 
-def getTextTables(df, name):
-    source = df[df.Label == name]
+def getTextTables(givenDF, name):
+    df = givenDF.copy(deep=True)
+    toDrop = df[ (df['Label'] != name)].index
+    df.drop(toDrop , inplace=True)
+
+    source = df
 
     rms_quantiles = pd.DataFrame(df['RMS Level'].quantile([1, 0.75, 0.5, 0.25, 0]))
     rmsPeak_quantiles = pd.DataFrame(df['RMS Peak'].quantile([1, 0.75, 0.5, 0.25, 0]))
@@ -142,7 +146,7 @@ def getTextTables(df, name):
     rmsPeak_quant_table = rmsPeak_base_table.encode(text='RMS Peak:Q').properties(title='[' + name+'] - RMS Peak Level Quartiles')
     peak_quant_table = peak_base_table.encode(text='Peak Level').properties(title='[' + name + '] - Peak Quartiles')
     
-    return alt.hconcat(rmsPeak_quant_table, rmsPeak_quant_table, peak_quant_table, center=True, spacing=60) # Combine data tables
+    return alt.hconcat(rms_quant_table, rmsPeak_quant_table, peak_quant_table, center=True, spacing=60) # Combine data tables
 
 
 def drawBoxPlot(pathToCSV):
@@ -191,6 +195,6 @@ def drawBoxPlot(pathToCSV):
 # argv[2] = .csv labels file
 # argv[3] = how many frame rate until resize
 # argv[4] = .csv file to store all the audio values
-#labels = turnLabelsToDataFrame(sys.argv[2]) # this is a dataframe
-#findValForEachSeg(labels, sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+labels = turnLabelsToDataFrame(sys.argv[2]) # this is a dataframe
+findValForEachSeg(labels, sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
 drawBoxPlot(sys.argv[4])
