@@ -16,7 +16,7 @@ def calcMaxPeakValues(path, windowSize):
 
             result = []
             for i in range (len(maxPeakLevels)):
-                if (i % windowFrameSize == windowFrameSize-2 or i == len(maxPeakLevels)-1):
+                if (i % windowFrameSize == windowFrameSize-1 or i == len(maxPeakLevels)-1):
                     result.append(abs(float(maxPeakLevels[i])))
 
             print(result)
