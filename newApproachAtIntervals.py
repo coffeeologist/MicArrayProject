@@ -117,7 +117,7 @@ def findValForEachSeg(labels, path, metric, intervalLen, destCSV):
     df.to_csv(destCSV, index=False)
 
 def getBaseTable(df):
-    return alt.Chart(df).mark_text().encode(
+    return alt.Chart(df, width=200).mark_text().encode(
         y=alt.Y('row_number:O',axis=None)
     ).transform_window(
         row_number='row_number()'
@@ -127,51 +127,70 @@ def getBaseTable(df):
         alt.datum.rank<20
     )
 
+def getTextTables(df, name):
+    source = df[df.Label == name]
+
+    rms_quantiles = pd.DataFrame(df['RMS Level'].quantile([1, 0.75, 0.5, 0.25, 0]))
+    rmsPeak_quantiles = pd.DataFrame(df['RMS Peak'].quantile([1, 0.75, 0.5, 0.25, 0]))
+    peak_quantiles = pd.DataFrame(df['Peak Level'].quantile([1, 0.75, 0.5, 0.25, 0]))
+
+    rms_base_table = getBaseTable(rms_quantiles)
+    rmsPeak_base_table = getBaseTable(rmsPeak_quantiles)
+    peak_base_table = getBaseTable(peak_quantiles)
+
+    rms_quant_table = rms_base_table.encode(text='RMS Level:Q').properties(title= '[' + name+'] - RMS Level Quartiles')
+    rmsPeak_quant_table = rmsPeak_base_table.encode(text='RMS Peak:Q').properties(title='[' + name+'] - RMS Peak Level Quartiles')
+    peak_quant_table = peak_base_table.encode(text='Peak Level').properties(title='[' + name + '] - Peak Quartiles')
+    
+    return alt.hconcat(rmsPeak_quant_table, rmsPeak_quant_table, peak_quant_table, center=True, spacing=60) # Combine data tables
+
+
 def drawBoxPlot(pathToCSV):
     df = pd.read_csv(pathToCSV)
     # print(df.to_string());  
     # df = df[df.Label != "A"| df.Label != "D"]
 
     toDrop = df[ (df['Label'] != "A") & (df['Label'] != "D") & (df['Label'] != "S")].index
- 
     df.drop(toDrop , inplace=True)
 
     source = df
+
     rms = alt.Chart(data=source, height=400, width=200).mark_boxplot(size=40).encode(
         x='Label',
-        y='RMS Level'
+        y=alt.Y('RMS Level',
+            scale=alt.Scale(domain=(-80, 0)),
+            axis=alt.Axis(title="RMS Level (dB)")
+        )
     )
     rmsPeak = alt.Chart(data=source, height=400, width=200).mark_boxplot(size=40).encode(
         x='Label',
-        y='RMS Peak'
+        y=alt.Y('RMS Peak',
+            scale=alt.Scale(domain=(-80, 0)),
+            axis=alt.Axis(title="RMS Peak Levels (dB)")
+        )
     )
     peak = alt.Chart(data=source, height=400, width=200).mark_boxplot(size=40).encode(
         x='Label',
-        y='Peak Level'
+        y=alt.Y('Peak Level',
+            scale=alt.Scale(domain=(-80, 0)),
+            axis=alt.Axis(title="Peak Level (dB)")
+        )
     )
 
-    rms_quantiles = pd.DataFrame(df['RMS Level'].quantile([1, 0.75, 0.5, 0.25, 0]))
-    rmsPeak_quantiles = pd.DataFrame(df['RMS Peak'].quantile([1, 0.75, 0.5, 0.25, 0]))
-    peak_quantiles = pd.DataFrame(df['Peak Level'].quantile([1, 0.75, 0.5, 0.25, 0]))
+    a = getTextTables(df, "A")
+    d = getTextTables(df, "D")
+    s = getTextTables(df, "S")
+
     dumped = pd.DataFrame([{'dumped': (df['Label'].value_counts()).values.sum()}])
-
-    rms_base_table = getBaseTable(rms_quantiles)
-    rmsPeak_base_table = getBaseTable(rmsPeak_quantiles)
-    peak_base_table = getBaseTable(peak_quantiles)
     dumped_base_table = getBaseTable(dumped)
-
-    rms_quant_table = rms_base_table.encode(text='RMS Level:Q').properties(title='RMS Level Quartiles')
-    rmsPeak_quant_table = rmsPeak_base_table.encode(text='RMS Peak:Q').properties(title='RMS Peak Level Quartiles')
-    peak_quant_table = peak_base_table.encode(text='Peak Level').properties(title='Peak Quartiles')
-    dumped_table = dumped_base_table.encode(text='dumped').properties(title='Number of Dumped Intervals')
-    text = alt.hconcat(rmsPeak_quant_table, rmsPeak_quant_table, peak_quant_table, dumped_table) # Combine data tables
-
-    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak), text).save('chart.png', scale_factor=2.0)
+    dumped_table = dumped_base_table.encode(text='dumped').properties(title='Number of Overall Dumped Intervals')
+    
+    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak, center=True), alt.vconcat(a, d, s, center=True), dumped_table, center=True, padding=20).save('chart.png', scale_factor=2.0)
 
 # argv[1] = .wav file
 # argv[2] = .csv labels file
 # argv[3] = how many frame rate until resize
 # argv[4] = .csv file to store all the audio values
-labels = turnLabelsToDataFrame(sys.argv[2]) # this is a dataframe
-findValForEachSeg(labels, sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+#labels = turnLabelsToDataFrame(sys.argv[2]) # this is a dataframe
+#findValForEachSeg(labels, sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
 drawBoxPlot(sys.argv[4])
