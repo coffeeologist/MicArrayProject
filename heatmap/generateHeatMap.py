@@ -8,7 +8,6 @@ import sys
 import csv
 import copy
 
-
 def generateMatrixFromWav(path):
 	if (os.path.isdir(path) == False):
 		if path.endswith(".wav"):
@@ -21,8 +20,6 @@ def generateMatrixFromWav(path):
 			
 			oldC = "ffprobe -f lavfi -i amovie="+path+",astats=metadata=1:reset=486:length=1 -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+".csv"
 
-# ffmpeg -i in.mp3 -af astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=log.txt -f null -
-
 			stringCommand="ffprobe -f lavfi -i amovie="+path+",astats=metadata=1:reset=7040 -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.Flat_factor,lavfi.astats.Overall.Peak_count,lavfi.astats.Overall.Dynamic_range, -of csv=p=0 -print_format csv>"+path[:-4]+".csv"
 
 			subprocess.call(blehstringCommand, shell=True)
@@ -34,9 +31,6 @@ def generateMatrixFromWav(path):
 	else:
 		for filename in os.listdir(path):
 			generateMatrixFromWav(path + "/" + filename)
-
-# To be written after we get a proper format csv data file
-# def generateHeatMap():
 
 def generateCombinedCSV(path):
 	counter = 0
@@ -52,7 +46,6 @@ def generateCombinedCSVhelper(path, res, counter):
 			counter += 1
 			csv_input = pd.read_csv(path)	
 			res[str(counter)] = csv_input[2]
-
 	else:
 		for filename in os.listdir(path):
 			generateCombinedCSVhelper(path + "/" + filename, res, counter)
@@ -97,5 +90,5 @@ def heatMap(path):
             y='y:O',
             color='z:Q').configure_axis(labelFontSize=10).configure_scale(barBandPaddingInner=0, bandPaddingInner=0, bandPaddingOuter=0).save('chart' + str(n) + '.png')
 
+generateMatrixFromWav(sys.argv[1])
 heatMap(sys.argv[1])
-# generateMatrixFromWav(sys.argv[1])
