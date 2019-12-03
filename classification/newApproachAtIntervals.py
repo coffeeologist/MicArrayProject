@@ -78,7 +78,7 @@ def classify_dump_crossovers(labels, winStart, winEnd):
         lab = rowSol['label']
 
         if(labStart <= winStart and winEnd <= labEnd):
-            return lab
+            return lab[0:1]
         
         if(winEnd <= labStart):
             return "DUMPED"
@@ -103,11 +103,7 @@ def findValForEachSeg(labels, path, metric, intervalLen, destCSV):
         winEnd = float(row['time'])
         totalTime = float(winEnd - winStart)
 
-        # Due to annotation limitations, we can only go up to 5mins
-        if(winStart > 1122):
-            labelClassification.append("UNDEFINED")
-        else:
-            labelClassification.append(classify_dump_crossovers(labels, winStart, winEnd))
+        labelClassification.append(classify_dump_crossovers(labels, winStart, winEnd))
                 
         winStart = winEnd
 
@@ -148,11 +144,18 @@ def getTextTables(givenDF, name):
     
     return alt.hconcat(rms_quant_table, rmsPeak_quant_table, peak_quant_table, center=True, spacing=60) # Combine data tables
 
+def getSingleValueTextTables(name, value, title):
+    singleText = pd.DataFrame([{name: value}])
+    singleText_base_table = getBaseTable(singleText)
+    return singleText_base_table.encode(text=name).properties(title=title)
 
 def drawBoxPlot(pathToCSV):
     df = pd.read_csv(pathToCSV)
     # print(df.to_string());  
     # df = df[df.Label != "A"| df.Label != "D"]
+
+    totalEntries = len(df.index)
+    dumpedAmount = len(df[df['Label'] == "DUMPED"].index)
 
     toDrop = df[ (df['Label'] != "A") & (df['Label'] != "D") & (df['Label'] != "S")].index
     df.drop(toDrop , inplace=True)
@@ -185,11 +188,17 @@ def drawBoxPlot(pathToCSV):
     d = getTextTables(df, "D")
     s = getTextTables(df, "S")
 
-    dumped = pd.DataFrame([{'dumped': (df['Label'].value_counts()).values.sum()}])
-    dumped_base_table = getBaseTable(dumped)
-    dumped_table = dumped_base_table.encode(text='dumped').properties(title='Number of Overall Dumped Intervals')
+    numEntries_A = getSingleValueTextTables('number', len(df[df['Label'] == 'A'].index), 'Number of A samples')
+    numEntries_D = getSingleValueTextTables('number', len(df[df['Label'] == 'D'].index), 'Number of D samples')
+    numEntries_S = getSingleValueTextTables('number', len(df[df['Label'] == 'S'].index), 'Number of S samples')
+   
+    dumped_table = getSingleValueTextTables('dumped', dumpedAmount, 'Number OfVerallDumped Intervals')
+    total_table = getSingleValueTextTables('total', totalEntries, 'Number of Intervals')
     
-    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak, center=True), alt.vconcat(a, d, s, center=True), dumped_table, center=True, padding=20).save('chart.png', scale_factor=2.0)
+    
+    statistics = alt.vconcat(alt.hconcat(numEntries_A, numEntries_D, numEntries_S, center = True), alt.hconcat(dumped_table, total_table, center=True), center=True)
+    
+    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak, center=True), statistics, alt.vconcat(a, d, s, center=True), center=True, padding=20).save('chart.png', scale_factor=2.0)
 
 # argv[1] = .wav file
 # argv[2] = .csv labels file
