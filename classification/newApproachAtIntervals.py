@@ -83,8 +83,8 @@ def classify_dump_crossovers(labels, winStart, winEnd):
         if(winEnd <= labStart):
             return "DUMPED"
 
-def findValForEachSeg(labels, path, metric, intervalLen, destCSV):
-    stringCommand="ffprobe -f lavfi -i amovie="+path+",astats=metadata=1:reset=" + str(intervalLen) + " -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+".csv"
+def findValForEachSeg(labels, path, intervalLen, destCSV):
+    stringCommand="ffprobe -f lavfi -i amovie=\""+path+"\",astats=metadata=1:reset=" + str(intervalLen) + " -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+".csv"
     subprocess.call(stringCommand, shell=True)
 
     df = pd.read_csv(path[:-4]+".csv", header=None)
@@ -149,19 +149,66 @@ def getSingleValueTextTables(name, value, title):
     singleText_base_table = getBaseTable(singleText)
     return singleText_base_table.encode(text=name).properties(title=title)
 
-def drawBoxPlot(pathToCSV):
-    df = pd.read_csv(pathToCSV)
-    # print(df.to_string());  
-    # df = df[df.Label != "A"| df.Label != "D"]
-
-    totalEntries = len(df.index)
-    dumpedAmount = len(df[df['Label'] == "DUMPED"].index)
-
+def splitByLabel(df):
     toDrop = df[ (df['Label'] != "A") & (df['Label'] != "D") & (df['Label'] != "S")].index
     df.drop(toDrop , inplace=True)
+    return df
 
-    source = df
+def splitByHumanVsNonHuman(df):
+    toDrop = df[ (df['Label'] != "A") & (df['Label'] != "D") & (df['Label'] != "S")].index
+    df.drop(toDrop , inplace=True)
+    for indexSol, rowSol in df.iterrows():
+        if(rowSol['Label'] == "A" or rowSol['Label'] == "D"):
+            df.at[indexSol, 'Label'] = "H"
 
+    return df
+
+def splitByHumanVsNonHumanMisc(df):
+    for indexSol, rowSol in df.iterrows():
+        if(rowSol['Label'] == "A" or rowSol['Label'] == "D"):
+            df.at[indexSol, 'Label'] = "H"
+        elif(rowSol['Label'] == "S"):
+            pass
+        elif(rowSol['Label'] == "M" or rowSol['Label'] == "C"):
+            df.at[indexSol, 'Label'] = "M"
+    toDrop = df[ (df['Label'] != "H") & (df['Label'] != "S") & (df['Label'] != "M")].index
+    df.drop(toDrop , inplace=True)
+    
+    return df
+
+def getNumEntries(df, splitStyle):
+    if (splitStyle == 'ads'):
+        numEntries_A = getSingleValueTextTables('number', len(df[df['Label'] == 'A'].index), 'Number of A samples')
+        numEntries_D = getSingleValueTextTables('number', len(df[df['Label'] == 'D'].index), 'Number of D samples')
+        numEntries_S = getSingleValueTextTables('number', len(df[df['Label'] == 'S'].index), 'Number of S samples')
+        return alt.hconcat(numEntries_A, numEntries_D, numEntries_S, center=True)
+    elif (splitStyle == 'humanNothuman'):
+        numEntries_H = getSingleValueTextTables('number', len(df[df['Label'] == 'H'].index), 'Number of H samples')
+        numEntries_S = getSingleValueTextTables('number', len(df[df['Label'] == 'S'].index), 'Number of S samples')
+        return alt.hconcat(numEntries_H, numEntries_S, center=True)
+    else:
+        numEntries_H = getSingleValueTextTables('number', len(df[df['Label'] == 'H'].index), 'Number of H samples')
+        numEntries_S = getSingleValueTextTables('number', len(df[df['Label'] == 'S'].index), 'Number of S samples')
+        numEntries_M = getSingleValueTextTables('number', len(df[df['Label'] == 'M'].index), 'Number of M samples')
+        return alt.hconcat(numEntries_H, numEntries_S, numEntries_M, center=True)
+        
+def getQuartiles(df, splitStyle):
+    if (splitStyle == "ads"):
+        a = getTextTables(df, "A")
+        d = getTextTables(df, "D")
+        s = getTextTables(df, "S")
+        return alt.vconcat(a, d, s, center=True)
+    elif (splitStyle == "humanNothuman"):
+        h = getTextTables(df, "H")
+        s = getTextTables(df, "S")
+        return alt.hconcat(h,s, center=True)
+    else:
+        h = getTextTables(df, "H")
+        m = getTextTables(df, "M")
+        s = getTextTables(df, "S")
+        return alt.vconcat(h, m, s, center=True)
+        
+def getBoxPlot(source):
     rms = alt.Chart(data=source, height=400, width=200).mark_boxplot(size=40).encode(
         x='Label',
         y=alt.Y('RMS Level',
@@ -183,27 +230,72 @@ def drawBoxPlot(pathToCSV):
             axis=alt.Axis(title="Peak Level (dB)")
         )
     )
+    return alt.hconcat(rms, rmsPeak, peak, center=True)
 
-    a = getTextTables(df, "A")
-    d = getTextTables(df, "D")
-    s = getTextTables(df, "S")
+def drawAComprehensiveBoxPlot(pathToCSV):
+    df = pd.read_csv(pathToCSV)
+    basic_box_plot = drawBoxPlot(df)
+    
+    source = splitByHumanVsNonHumanMisc(df)
+    quartiles_table = getQuartiles(source, "misc")
+    graphs = alt.vconcat(basic_box_plot, quartiles_table, center=True, padding=20).save('chart.png', scale_factor=2.0)
 
-    numEntries_A = getSingleValueTextTables('number', len(df[df['Label'] == 'A'].index), 'Number of A samples')
-    numEntries_D = getSingleValueTextTables('number', len(df[df['Label'] == 'D'].index), 'Number of D samples')
-    numEntries_S = getSingleValueTextTables('number', len(df[df['Label'] == 'S'].index), 'Number of S samples')
-   
+def drawBoxPlot(df):
+    totalEntries = len(df.index)
+    dumpedAmount = len(df[df['Label'] == "DUMPED"].index)
+
+    source = splitByHumanVsNonHumanMisc(df)
+    boxplots = getBoxPlot(source)
+    
     dumped_table = getSingleValueTextTables('dumped', dumpedAmount, 'Number OfVerallDumped Intervals')
     total_table = getSingleValueTextTables('total', totalEntries, 'Number of Intervals')
+    numEntries_table = getNumEntries(df, "misc") 
     
+    statistics = alt.vconcat(numEntries_table, alt.hconcat(dumped_table, total_table, center=True), center=True)
     
-    statistics = alt.vconcat(alt.hconcat(numEntries_A, numEntries_D, numEntries_S, center = True), alt.hconcat(dumped_table, total_table, center=True), center=True)
+    graphs = alt.vconcat(boxplots, statistics, center=True)
+
+    return graphs
+
+def drawGridBoxPlotFromCSV(listOfCSV):
+    # Currently assumed format of the charts:
+    #  12 11 10
+    #   9  8  7
+    #   6  5  4
+    #   3  2  1
+    graphs = []
+    for i in range (12):
+        df = pd.read_csv(listOfCSV[i])
+        graph = alt.vconcat(drawBoxPlot(df), getSingleValueTextTables("Mic #", i, listOfCSV[i]), center=True)
+        graphs.append(graph)
+
+    row1 = alt.hconcat(graphs[11], graphs[10], graphs[9])
+    row2 = alt.hconcat(graphs[8], graphs[7], graphs[6])
+    row3 = alt.hconcat(graphs[5], graphs[4], graphs[2])
+    row4 = alt.hconcat(graphs[2], graphs[1], graphs[0])
+
+    alt.vconcat(row1, row2, row3, row4, center=True).save("chart.png", scale_factor=2.0)
+
+    pass
+
+def drawGridBoxPlot(labels, pathToFolderOfWAV, intervalLen): # assumes that the .wav files are numbered 01~12
+    listOfCSVs = []
+    for filename in os.listdir(pathToFolderOfWAV):
+        findValForEachSeg(labels, pathToFolderOfWAV + "/" + filename, intervalLen, pathToFolderOfWAV + "/" + filename[:-4]+".csv") 
+        listOfCSVs.append(pathToFolderOfWAV + "/" + filename[:-4] + ".csv")
     
-    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak, center=True), statistics, alt.vconcat(a, d, s, center=True), center=True, padding=20).save('chart.png', scale_factor=2.0)
+    listOfCSVs.sort()
+    drawGridBoxPlotFromCSV(listOfCSVs)
+    
 
 # argv[1] = .wav file
-# argv[2] = .csv labels file
+# argv[2] = .txt labels file
 # argv[3] = how many frame rate until resize
 # argv[4] = .csv file to store all the audio values
+# labels = turnLabelsToDataFrame(sys.argv[2]) # this is a dataframe
+# findValForEachSeg(labels, sys.argv[1], sys.argv[3], sys.argv[4])
+# drawAComprehensiveBoxPlot(sys.argv[4])
+
+
 labels = turnLabelsToDataFrame(sys.argv[2]) # this is a dataframe
-findValForEachSeg(labels, sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-drawBoxPlot(sys.argv[4])
+drawGridBoxPlot(labels, sys.argv[1], sys.argv[3])
