@@ -82,68 +82,106 @@ def classify_dump_crossovers(labels, winStart, winEnd):
         if(winEnd <= labStart):
             return "DUMPED"
 
-def findValForEachSeg(labels, path, metric, intervalLen, destCSV):
-    stringCommand="ffprobe -f lavfi -i amovie="+path+",astats=metadata=1:reset=" + str(intervalLen) + " -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+".csv"
-    subprocess.call(stringCommand, shell=True)
+def findValForEachSeg(labels, path, metric, intervalLen, destCSV, step):
+    numIters = int(intervalLen) // int((float(step) * 48))
+    res = pd.DataFrame()
 
-    df = pd.read_csv(path[:-4]+".csv", header=None)
-    df.rename(columns={0: 'frame', 1: 'time', 2: 'Peak Level', 3: 'RMS Peak', 4: 'RMS Level'}, inplace=True)
-    for i in range(len(df)):
-        df.at[i , "frame"]= str(i)
+    for i in range (numIters):
+        stringTrim = "ffmpeg -y -i "+path+" -ss " + str(i) + " -acodec copy "+path[:-4]+"_SHIFT.wav"
+        subprocess.call(stringTrim, shell=True)
 
-    df = df.iloc[int(intervalLen)::int(intervalLen)] # starting from row 1, takes every other (intervalLen) row
+        stringCommand2 ="ffprobe -f lavfi -i amovie="+path[:-4]+"_SHIFT.wav,astats=metadata=1:reset=" + str(intervalLen) + " -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+"_SHIFT.csv"
+        subprocess.call(stringCommand2, shell=True)
+
+        df2 = pd.read_csv(path[:-4]+"_SHIFT.csv", header=None)
+        df2.rename(columns={0: 'frame', 1: 'time', 2: 'Peak Level', 3: 'RMS Peak', 4: 'RMS Level'}, inplace=True)
+        for j in range(len(df2)):
+            df2.at[j , "frame"]= str(i)
+
+        df2 = df2.iloc[int(intervalLen)::int(intervalLen)] # starting from row 1, takes every other (intervalLen) row
+        
+        labelClassification2 = []
+
+        df2.to_csv(path[:-4]+"_SHIFT.csv", index=False)
+        # classify each of the window to a label? 
+        winStart = i
+        for index, row in df2.iterrows():
+            row['time'] = i+row['time']
+            winEnd = float(row['time'])
+            totalTime = float(winEnd - winStart)
+
+            labelClassification2.append(classify_dump_crossovers(labels, winStart, winEnd))
+                    
+            winStart = winEnd
+
+        df2.insert(1, "Label", labelClassification2, True)
+        res = res.append(df2, ignore_index=True)
+
+    res.to_csv(destCSV,index=False)
+
+        
     
-    labelClassification = []
+    # stringCommand="ffprobe -f lavfi -i amovie="+path+",astats=metadata=1:reset=" + str(intervalLen) + " -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+".csv"
+    # subprocess.call(stringCommand, shell=True)
 
-    df.to_csv(path[:-4]+".csv", index=False)
-    # classify each of the window to a label? 
-    winStart = 0
-    for index, row in df.iterrows():
-        winEnd = float(row['time'])
-        totalTime = float(winEnd - winStart)
+    # df = pd.read_csv(path[:-4]+".csv", header=None)
+    # df.rename(columns={0: 'frame', 1: 'time', 2: 'Peak Level', 3: 'RMS Peak', 4: 'RMS Level'}, inplace=True)
+    # for i in range(len(df)):
+    #     df.at[i , "frame"]= str(i)
 
-        labelClassification.append(classify_dump_crossovers(labels, winStart, winEnd))
+    # df = df.iloc[int(intervalLen)::int(intervalLen)] # starting from row 1, takes every other (intervalLen) row
+    
+    # labelClassification = []
+
+    # df.to_csv(path[:-4]+".csv", index=False)
+    # # classify each of the window to a label? 
+    # winStart = 0
+    # for index, row in df.iterrows():
+    #     winEnd = float(row['time'])
+    #     totalTime = float(winEnd - winStart)
+
+    #     labelClassification.append(classify_dump_crossovers(labels, winStart, winEnd))
                 
-        winStart = winEnd
+    #     winStart = winEnd
 
-    df.insert(1, "Label", labelClassification, True)
+    # df.insert(1, "Label", labelClassification, True)
 
-    stringCommand1="ffmpeg -i "+path+" -ss 1 -acodec copy "+path[:-4]+"_SHIFT.wav"
-    subprocess.call(stringCommand1, shell=True)
+    # stringCommand1="ffmpeg -i "+path+" -ss 1 -acodec copy "+path[:-4]+"_SHIFT.wav"
+    # subprocess.call(stringCommand1, shell=True)
     
-    stringCommand2 ="ffprobe -f lavfi -i amovie="+path[:-4]+"_SHIFT.wav,astats=metadata=1:reset=" + str(intervalLen) + " -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+"_SHIFT.csv"
-    subprocess.call(stringCommand2, shell=True)
+    # stringCommand2 ="ffprobe -f lavfi -i amovie="+path[:-4]+"_SHIFT.wav,astats=metadata=1:reset=" + str(intervalLen) + " -show_entries frame=pkt_pts_time:frame_tags=lavfi.astats.Overall.Peak_level,lavfi.astats.Overall.RMS_peak,lavfi.astats.Overall.RMS_level, -of csv=p=0 -print_format csv>"+path[:-4]+"_SHIFT.csv"
+    # subprocess.call(stringCommand2, shell=True)
 
-    df2 = pd.read_csv(path[:-4]+"_SHIFT.csv", header=None)
-    df2.rename(columns={0: 'frame', 1: 'time', 2: 'Peak Level', 3: 'RMS Peak', 4: 'RMS Level'}, inplace=True)
-    for i in range(len(df2)):
-        df2.at[i , "frame"]= str(i)
+    # df2 = pd.read_csv(path[:-4]+"_SHIFT.csv", header=None)
+    # df2.rename(columns={0: 'frame', 1: 'time', 2: 'Peak Level', 3: 'RMS Peak', 4: 'RMS Level'}, inplace=True)
+    # for i in range(len(df2)):
+    #     df2.at[i , "frame"]= str(i)
 
-    df2 = df2.iloc[int(intervalLen)::int(intervalLen)] # starting from row 1, takes every other (intervalLen) row
+    # df2 = df2.iloc[int(intervalLen)::int(intervalLen)] # starting from row 1, takes every other (intervalLen) row
     
-    labelClassification2 = []
+    # labelClassification2 = []
 
-    df2.to_csv(path[:-4]+"_SHIFT.csv", index=False)
-    # classify each of the window to a label? 
-    winStart2 = 1
-    for index, row in df2.iterrows():
-        row['time'] = 1+row['time']
-        winEnd = float(row['time'])
-        totalTime = float(winEnd - winStart)
+    # df2.to_csv(path[:-4]+"_SHIFT.csv", index=False)
+    # # classify each of the window to a label? 
+    # winStart2 = 1
+    # for index, row in df2.iterrows():
+    #     row['time'] = 1+row['time']
+    #     winEnd = float(row['time'])
+    #     totalTime = float(winEnd - winStart)
 
-        labelClassification2.append(classify_dump_crossovers(labels, winStart, winEnd))
+    #     labelClassification2.append(classify_dump_crossovers(labels, winStart, winEnd))
                 
-        winStart = winEnd
+    #     winStart = winEnd
 
-    df2.insert(1, "Label", labelClassification2, True)
+    # df2.insert(1, "Label", labelClassification2, True)
 
-    # Save as csv	
-    df.to_csv(destCSV, index=False)
-    df2.to_csv(destCSV[:-4]+"_SHIFT.csv", index=False)
+    # # Save as csv	
+    # df.to_csv(destCSV, index=False)
+    # df2.to_csv(destCSV[:-4]+"_SHIFT.csv", index=False)
 
-    df3 = df.append(df2, ignore_index=True)
+    # df3 = df.append(df2, ignore_index=True)
 
-    df3.to_csv(destCSV[:-4]+"_OVERALL.csv",index=False)
+    # df3.to_csv(destCSV[:-4]+"_OVERALL.csv",index=False)
 
 def getBaseTable(df):
     return alt.Chart(df, width=200).mark_text().encode(
@@ -225,18 +263,19 @@ def drawBoxPlot(pathToCSV):
     numEntries_D = getSingleValueTextTables('number', len(df[df['Label'] == 'D'].index), 'Number of D samples')
     numEntries_S = getSingleValueTextTables('number', len(df[df['Label'] == 'S'].index), 'Number of S samples')
    
-    dumped_table = getSingleValueTextTables('dumped', dumpedAmount, 'Number OfVerallDumped Intervals')
+    dumped_table = getSingleValueTextTables('dumped', dumpedAmount, 'Number Of Overall Dumped Intervals')
     total_table = getSingleValueTextTables('total', totalEntries, 'Number of Intervals')
     
     
     statistics = alt.vconcat(alt.hconcat(numEntries_A, numEntries_D, numEntries_S, center = True), alt.hconcat(dumped_table, total_table, center=True), center=True)
     
-    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak, center=True), statistics, alt.vconcat(a, d, s, center=True), center=True, padding=20).save('chart.png', scale_factor=2.0)
+    graphs = alt.vconcat(alt.hconcat(rms, rmsPeak, peak, center=True), statistics, alt.vconcat(a, d, s, center=True), center=True, padding=20).properties(background='white').save('chart.png', scale_factor=2.0)
 
 # argv[1] = .wav file
 # argv[2] = .csv labels file
 # argv[3] = how many frame rate until resize
 # argv[4] = .csv file to store all the audio values
+# argv[5] = number of seconds to step
 labels = turnLabelsToDataFrame(sys.argv[2]) # this is a dataframe
-findValForEachSeg(labels, sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-drawBoxPlot((sys.argv[4])[:-4]+"_OVERALL.csv")
+findValForEachSeg(labels, sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+drawBoxPlot(sys.argv[4])
