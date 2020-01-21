@@ -1,6 +1,7 @@
+import sys
 import os
 # Set cache for librosa before importing
-# os.environ['LIBROSA_CACHE_DIR'] = '/tmp/librosa_cache'
+os.environ['LIBROSA_CACHE_DIR'] = '/tmp/librosa_cache'
 import librosa
 import numpy as np
 
@@ -10,8 +11,8 @@ import altair as alt
 # Get ground truths, 
 # return DataFrame and overall start/end times of labeled regions
 def readLabels(path):
-    df = pd.read_csv(open(path, "r"), sep = '\t', names=["start", "end", "label"], index_col=False)
-    return df, df.at[0, "start"], df.at[df.size//3 - 1, "end"]
+    df = pd.read_csv(open(path, "r"), sep = '\t', names=["Start", "End", "Label"], index_col=False)
+    return df, df.at[0, "Start"], df.at[df.size//3 - 1, "End"]
 
 # Create generator for slices of frames of the specified size,
 # returns generator
@@ -66,12 +67,39 @@ def createDataFrame(meanRMS, varianceRMS, timeIntervals):
     tmp = np.array([start, end, meanRMS, varianceRMS])
     tmp = np.transpose(tmp)
 
-    return pd.DataFrame(tmp, columns=["Start time", "End time", "RMS Level", "RMS Variance"])
+    return pd.DataFrame(tmp, columns=["Start", "End", "RMS Level", "RMS Variance"])
+
+# Assign labels from ground truth to windows
+def assignLabels(values, labels):
+    result = values
+    result["Label"] = ""
     
+    current = 0
+    for i in range(result.shape[0]):
+        winStart = values.at[i, "Start"]
+        winEnd = values.at[i, "End"]
+        labStart = labels.at[current, "Start"]
+        labEnd = labels.at[current, "End"]
+
+        if((labStart <= winStart) and (winEnd <= labEnd)):
+            result.at[i, "Label"] = labels.at[current, "Label"]
+
+        partitions = []
+        while(winEnd > labStart):
+            if((labStart <= winStart) and (labEnd <= winEnd)):
+                leftOverlap = labEnd - winStart
+
+                current += 1
+                labStart = labels.at[current, "Start"]
+                labEnd = labels.at[current, "End"]
+                
+            
+
+    return result
+
 # Uncomment if you want cache cleared before EACH call to script
 # librosa.cache.clear()
 
-import sys
 # sys.argv[1] = .wav file
 # sys.argv[2] = frames in slice
 # sys.argv[3] = labels file
@@ -79,3 +107,5 @@ labels, absStart, absEnd = readLabels(sys.argv[3])
 audio, sampleRate, hopLength = loadAudio(sys.argv[1], int(sys.argv[2]), absStart, absEnd)
 meanRMS, varianceRMS, timeIntervals = calculateValues(audio, int(sys.argv[2]), hopLength, sampleRate, absStart)
 values = createDataFrame(meanRMS, varianceRMS, timeIntervals)
+
+labeledValues = assignLabels(values, labels)
