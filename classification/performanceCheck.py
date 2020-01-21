@@ -17,12 +17,9 @@ def performanceCheck(truthLabels, classifiedLabels):
     for index, row in classified.iterrows():
         winStart = float(row['from'])
         winEnd = float(row['to'])
-        genLab = row['label']
+        genLab = row['label'][0:1]
         temp = calculateScore(truth, winStart, winEnd, genLab)
-        print(temp)
         score += temp
-    print(score)
-    print("done")
     return score / (len(classified.index))
 
 def calculateScore(truth, winStart, winEnd, genLab):
@@ -68,7 +65,6 @@ def calculateScore(truth, winStart, winEnd, genLab):
             else:
                 assert((labEnd-winStart)/(winEnd-winStart) >= 0)
                 composition[lab] = (labEnd-winStart)/(winEnd-winStart)
-    print(composition)
     if (genLab in composition):
         return composition[genLab]
     return 0.0
