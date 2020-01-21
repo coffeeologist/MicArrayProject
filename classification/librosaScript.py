@@ -81,19 +81,32 @@ def assignLabels(values, labels):
         labStart = labels.at[current, "Start"]
         labEnd = labels.at[current, "End"]
 
-        if((labStart <= winStart) and (winEnd <= labEnd)):
+        assert(labStart <= winStart)
+
+        # Window completely inside of label
+        if(winEnd <= labEnd):
             result.at[i, "Label"] = labels.at[current, "Label"]
-
-        partitions = []
-        while(winEnd > labStart):
-            if((labStart <= winStart) and (labEnd <= winEnd)):
-                leftOverlap = labEnd - winStart
-
+        else:
+            partitions = []
+            while(winEnd > labEnd):
+                interval = 0.0
+                if(labStart <= winStart):
+                    interval = labEnd - winStart
+                else:
+                    interval = labEnd - labStart
+                partitions.append((interval, labels.at[current, "Label"]))
+                
                 current += 1
                 labStart = labels.at[current, "Start"]
-                labEnd = labels.at[current, "End"]
-                
+                labEnd = labels.at[current, "End"]       
+                # Make sure to get final overlap (window hangs into right label)
+                if (winEnd > labEnd):
+                    partitions.append((winEnd - labStart, labels.at[current, "Label"]))
             
+            # Final label assigned is simply largest part of window (no aggregation of same labels occur)
+            from operator import itemgetter
+            majority = max(partitions, key=itemgetter(0))[1]
+            result.at[i, "Label"] = majority
 
     return result
 
