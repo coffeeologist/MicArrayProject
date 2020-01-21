@@ -39,11 +39,15 @@ def loadAudio(audioPath, size, absStart, absEnd):
 def calculateValues(stream, size, hopLength, sampleRate, absStart):
     meanRMS = []
     varianceRMS = []
+    peak = []
     timeIntervals = []
 
     for index, timeBlock in enumerate(stream):
         spectrogram = librosa.stft(timeBlock, window=np.ones, center=False)
         spectrogramMagnitude = librosa.magphase(spectrogram)[0]
+        
+        peak.append(np.max(spectrogramMagnitude))
+
         rmsValues = librosa.feature.rms(S = spectrogramMagnitude)
         meanRMS.append(np.mean(rmsValues))
         varianceRMS.append(np.var(rmsValues))
@@ -55,19 +59,19 @@ def calculateValues(stream, size, hopLength, sampleRate, absStart):
         length = librosa.get_duration(S=spectrogram, sr=sampleRate)
         timeIntervals.append((start, start+length))
 
-    return meanRMS, varianceRMS, timeIntervals
+    return meanRMS, varianceRMS, peak, timeIntervals
 
 # Converts three lists into a single DataFrame, where
 # each row is a window and each column is
 # Peak Level, Peak RMS (level), and (average) RMS Level
-def createDataFrame(meanRMS, varianceRMS, timeIntervals):
+def createDataFrame(meanRMS, varianceRMS, peak, timeIntervals):
     start = [i[0] for i in timeIntervals]
     end = [i[1] for i in timeIntervals]
     
-    tmp = np.array([start, end, meanRMS, varianceRMS])
+    tmp = np.array([start, end, peak, meanRMS, varianceRMS])
     tmp = np.transpose(tmp)
 
-    return pd.DataFrame(tmp, columns=["Start", "End", "RMS Level", "RMS Variance"])
+    return pd.DataFrame(tmp, columns=["Start", "End", "Peak Level", "RMS Level", "RMS Variance"])
 
 # Assign labels from ground truth to windows
 def assignLabels(values, labels):
@@ -118,7 +122,7 @@ def assignLabels(values, labels):
 # sys.argv[3] = labels file
 labels, absStart, absEnd = readLabels(sys.argv[3])
 audio, sampleRate, hopLength = loadAudio(sys.argv[1], int(sys.argv[2]), absStart, absEnd)
-meanRMS, varianceRMS, timeIntervals = calculateValues(audio, int(sys.argv[2]), hopLength, sampleRate, absStart)
-values = createDataFrame(meanRMS, varianceRMS, timeIntervals)
+meanRMS, varianceRMS, peak, timeIntervals = calculateValues(audio, int(sys.argv[2]), hopLength, sampleRate, absStart)
+values = createDataFrame(meanRMS, varianceRMS, peak, timeIntervals)
 
 labeledValues = assignLabels(values, labels)
