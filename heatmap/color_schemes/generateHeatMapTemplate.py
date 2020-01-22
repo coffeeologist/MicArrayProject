@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 # Settings
-COLOR_SCHEME = 'viridis'
-WITH_TEXTURE = True
+COLOR_SCHEME = 'reds'
+WITH_TEXTURE = False
 
 # Code to make the swatches
 x, y = np.meshgrid(range(0, 10), range(0, 10))

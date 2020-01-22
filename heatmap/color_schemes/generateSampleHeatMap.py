@@ -5,8 +5,8 @@ import sys
 import csv
 import copy
 
-SCHEME = 'spectral'
-WITH_TEXTURE = True
+SCHEME = 'reds'
+WITH_TEXTURE = False
 
 def heatMap(intensity_path, conf_path):
     conf_csv = pd.read_csv(conf_path)
@@ -37,7 +37,7 @@ def heatMap(intensity_path, conf_path):
         resChart = alt.Chart(data=source, height=400, width=600).mark_rect(strokeWidth=100).encode(
             x='x:O',
             y='y:O',
-            color=alt.Color('intensity:Q', scale = alt.Scale(scheme=SCHEME, domain=[0.038, 0.000])),
+            color=alt.Color('intensity:Q', scale = alt.Scale(scheme=SCHEME, domain=[0.000, 0.038])),
             opacity=alt.Opacity('conf:Q', scale = alt.Scale(domain=[0, 1], range=[0, 1]))
         )
 
@@ -59,6 +59,7 @@ def heatMap(intensity_path, conf_path):
                 color=alt.value('gray')
             )
             alt.layer(backgroundGridChart1, resChart).resolve_scale(y='independent', x='independent').save('chart' + str(n) + '.png')
-
+        else:
+            resChart.save('chart' + str(n) + '.png')
 
 heatMap(sys.argv[1], sys.argv[2])
