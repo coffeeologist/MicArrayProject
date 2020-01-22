@@ -33,29 +33,7 @@ gradient = alt.Chart(source).mark_rect().encode(
     opacity=alt.Opacity('confidence:Q', scale = alt.Scale(domain=[0, 1], range=[0.2, 1]))
 )
 if (WITH_TEXTURE):
-    '''
-    blank1, blank = np.meshgrid(range(0, 10), range(0, 10))
-    blank2 = blank*0 + 10
-    backgroundGrid = pd.DataFrame({'x': blank1.ravel(), 'y':blank2.ravel()})
-    backgroundGrid = pd.DataFrame({
-        'a': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-        'b': [9, 9, 9, 9, 9, 9, 9, 9, 9, 9]
-    })
-    backgroundGridChart1 = alt.Chart(backgroundGrid, height=600, width=600).mark_bar(size=10).encode(x='a', y='b')
-    '''
-
-        
     data = pd.DataFrame([dict(id=i) for i in range(0, 99)])
-
-    person = (
-        "M1.7 -1.7h-0.8c0.3 -0.2 0.6 -0.5 0.6 -0.9c0 -0.6 "
-        "-0.4 -1 -1 -1c-0.6 0 -1 0.4 -1 1c0 0.4 0.2 0.7 0.6 "
-        "0.9h-0.8c-0.4 0 -0.7 0.3 -0.7 0.6v1.9c0 0.3 0.3 0.6 "
-        "0.6 0.6h0.2c0 0 0 0.1 0 0.1v1.9c0 0.3 0.2 0.6 0.3 "
-        "0.6h1.3c0.2 0 0.3 -0.3 0.3 -0.6v-1.8c0 0 0 -0.1 0 "
-        "-0.1h0.2c0.3 0 0.6 -0.3 0.6 -0.6v-2c0.2 -0.3 -0.1 "
-        "-0.6 -0.4 -0.6z"
-    )
 
     backgroundGridChart1 = alt.Chart(data).transform_calculate(
         row="floor(datum.id/10)"
