@@ -40,13 +40,16 @@ def calculateValues(stream, size, hopLength, sampleRate, absStart):
     meanRMS = []
     varianceRMS = []
     peak = []
+    dynamic = []
     timeIntervals = []
 
     for index, timeBlock in enumerate(stream):
         spectrogram = librosa.stft(timeBlock, window=np.ones, center=False)
         spectrogramMagnitude = librosa.magphase(spectrogram)[0]
         
-        peak.append(np.max(spectrogramMagnitude))
+        peakValue = np.max(spectrogramMagnitude)
+        peak.append(peakValue)
+        dynamic.append(abs(peakValue - np.min(spectrogramMagnitude)))
 
         rmsValues = librosa.feature.rms(S = spectrogramMagnitude)
         meanRMS.append(np.mean(rmsValues))
@@ -59,19 +62,19 @@ def calculateValues(stream, size, hopLength, sampleRate, absStart):
         length = librosa.get_duration(S=spectrogram, sr=sampleRate)
         timeIntervals.append((start, start+length))
 
-    return meanRMS, varianceRMS, peak, timeIntervals
+    return meanRMS, varianceRMS, peak, dynamic, timeIntervals
 
 # Converts three lists into a single DataFrame, where
 # each row is a window and each column is
 # Peak Level, Peak RMS (level), and (average) RMS Level
-def createDataFrame(meanRMS, varianceRMS, peak, timeIntervals):
+def createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals):
     start = [i[0] for i in timeIntervals]
     end = [i[1] for i in timeIntervals]
     
-    tmp = np.array([start, end, peak, meanRMS, varianceRMS])
+    tmp = np.array([start, end, peak, dynamic, meanRMS, varianceRMS])
     tmp = np.transpose(tmp)
 
-    return pd.DataFrame(tmp, columns=["Start", "End", "Peak Level", "RMS Level", "RMS Variance"])
+    return pd.DataFrame(tmp, columns=["Start", "End", "Peak Level", "Dynamic Range", "RMS Level", "RMS Variance"])
 
 # Assign labels from ground truth to windows
 def assignLabels(values, labels):
@@ -89,7 +92,11 @@ def assignLabels(values, labels):
 
         # Window completely inside of label
         if(winEnd <= labEnd):
-            result.at[i, "Label"] = labels.at[current, "Label"]
+            if((labels.at[current, "Label"][0] == "D") or 
+               (labels.at[current, "Label"][0] == "A")):
+               result.at[i, "Label"] = "H"
+            else:
+                result.at[i, "Label"] = labels.at[current, "Label"][0]
         else:
             partitions = []
             while(winEnd > labEnd):
@@ -110,7 +117,11 @@ def assignLabels(values, labels):
             # Final label assigned is simply largest part of window (no aggregation of same labels occur)
             from operator import itemgetter
             majority = max(partitions, key=itemgetter(0))[1]
-            result.at[i, "Label"] = majority
+            if((majority[0] == "D") or 
+               (majority[0] == "A")):
+               result.at[i, "Label"] = "H"
+            else:
+                result.at[i, "Label"] = majority[0]
 
     return result
 
