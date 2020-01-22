@@ -87,7 +87,6 @@ def assignLabels(values, labels):
         winEnd = values.at[i, "End"]
         labStart = labels.at[current, "Start"]
         labEnd = labels.at[current, "End"]
-
         assert(labStart <= winStart)
 
         # Window completely inside of label
@@ -133,7 +132,8 @@ def assignLabels(values, labels):
 # sys.argv[3] = labels file
 labels, absStart, absEnd = readLabels(sys.argv[3])
 audio, sampleRate, hopLength = loadAudio(sys.argv[1], int(sys.argv[2]), absStart, absEnd)
-meanRMS, varianceRMS, peak, timeIntervals = calculateValues(audio, int(sys.argv[2]), hopLength, sampleRate, absStart)
-values = createDataFrame(meanRMS, varianceRMS, peak, timeIntervals)
+meanRMS, varianceRMS, peak, dynamic, timeIntervals = calculateValues(audio, int(sys.argv[2]), hopLength, sampleRate, absStart)
+values = createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals)
 
 labeledValues = assignLabels(values, labels)
+labeledValues.to_csv("data.csv")
