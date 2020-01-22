@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 # Settings
-COLOR_SCHEME = 'reds'
-WITH_TEXTURE = False
+COLOR_SCHEME = 'custom'
+WITH_TEXTURE = True
 
 # Code to make the swatches
 x, y = np.meshgrid(range(0, 10), range(0, 10))
@@ -17,13 +17,21 @@ source = pd.DataFrame({'x': x.ravel(),
                      'intensity': intensity.ravel(),
                      'confidence': confidence.ravel()})
 
+# original code that makes palettes
+# gradient = alt.Chart(source).mark_rect().encode(
+#     x='x:O',
+#     y='y:O',
+#     color=alt.Color('confidence:Q', scale = alt.Scale(scheme=COLOR_SCHEME, domain=[0,1])),
+#     opacity=alt.Opacity('intensity:Q', scale = alt.Scale(domain=[0, 9], range=[0.1, 1]))
+# )
+
+# after briefing David, he suggested to have silence be white (so a white->red scale)
 gradient = alt.Chart(source).mark_rect().encode(
     x='x:O',
     y='y:O',
-    color=alt.Color('intensity:Q', scale = alt.Scale(scheme=COLOR_SCHEME)),
-    opacity=alt.Opacity('confidence:Q', scale = alt.Scale(domain=[0, 1], range=[0, 1]))
+    color=alt.Color('intensity:Q', scale = alt.Scale(domain=[0,9], range=['#ffffff', '#ffe6e6', '#ffcccc', 'ffb3b3', '#ff9999', '#ff8080', '#ff6666', '#ff4d4d', '#ff3333', '#ff1a1a', '#e60000'])),
+    opacity=alt.Opacity('confidence:Q', scale = alt.Scale(domain=[0, 1], range=[0.2, 1]))
 )
-
 if (WITH_TEXTURE):
     '''
     blank1, blank = np.meshgrid(range(0, 10), range(0, 10))
