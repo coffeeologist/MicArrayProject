@@ -9,7 +9,7 @@ WITH_TEXTURE = True
 # Code to make the swatches
 x, y = np.meshgrid(range(0, 10), range(0, 10))
 intensity = x
-confidence = (y/9) * 100 + 1
+confidence = y/9
 
 # Convert this grid to columnar data expected by Altair
 source = pd.DataFrame({'x': x.ravel(),
@@ -29,8 +29,8 @@ source = pd.DataFrame({'x': x.ravel(),
 gradient = alt.Chart(source).mark_rect().encode(
     x='x:O',
     y='y:O',
-    color=alt.Color('intensity:Q', legend=alt.Legend(orient='bottom'), scale = alt.Scale(type='linear', domain=[0,9], range=['#ffffff', '#ffe6e6', '#ffcccc', 'ffb3b3', '#ff9999', '#ff8080', '#ff6666', '#ff4d4d', '#ff3333', '#ff1a1a', '#ff0000', '#e60000', '#cc0000'])),
-    opacity=alt.Opacity('confidence:Q', scale = alt.Scale(type='log', domain=[1, 100], range=[0.2, 1]))
+    color=alt.Color('intensity:Q', scale = alt.Scale(domain=[0,9], range=['#ffffff', '#ffe6e6', '#ffcccc', 'ffb3b3', '#ff9999', '#ff8080', '#ff6666', '#ff4d4d', '#ff3333', '#ff1a1a', '#e60000'])),
+    opacity=alt.Opacity('confidence:Q', scale = alt.Scale(domain=[0, 1], range=[0.2, 1]))
 )
 if (WITH_TEXTURE):
     data = pd.DataFrame([dict(id=i) for i in range(0, 99)])
