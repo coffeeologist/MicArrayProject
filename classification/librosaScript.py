@@ -2,6 +2,7 @@ import sys
 import os
 # Set cache for librosa before importing
 os.environ['LIBROSA_CACHE_DIR'] = '/tmp/librosa_cache'
+os.environ['LIBROSA_CACHE_LEVEL'] = '20'
 import librosa
 import numpy as np
 
@@ -64,17 +65,30 @@ def calculateValues(stream, size, hopLength, sampleRate, absStart):
 
     return meanRMS, varianceRMS, peak, dynamic, timeIntervals
 
+#calculates zero crossing rate
+#returns np array
+def zeroCross(audioPath, absStart, absEnd, hopLength):
+    y, sr = librosa.load(audioPath , sr=None, offset=absStart, duration=absEnd-absStart)
+    frameLength = sr // 48
+    arr = librosa.feature.zero_crossing_rate(y,frame_length=frameLength, hop_length=hopLength)[0]
+    arr = np.split(arr,[len(arr) - len(arr) % 12])[0].reshape(-1,12)
+    arr = np.mean(arr, axis=1)
+    return arr
+
+
 # Converts three lists into a single DataFrame, where
 # each row is a window and each column is
 # Peak Level, Peak RMS (level), and (average) RMS Level
-def createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals):
+def createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals, zeroCrossings):
     start = [i[0] for i in timeIntervals]
     end = [i[1] for i in timeIntervals]
+    pad = lambda a, i: a[0: i] if a.shape[0] > i else np.hstack((a, np.zeros(i - a.shape[0])))
+    zeroCrossings = pad(zeroCrossings, len(varianceRMS))
     
-    tmp = np.array([start, end, peak, dynamic, meanRMS, varianceRMS])
+    tmp = np.array([start, end, peak, dynamic, meanRMS, varianceRMS, zeroCrossings])
     tmp = np.transpose(tmp)
 
-    return pd.DataFrame(tmp, columns=["Start", "End", "Peak Level", "Dynamic Range", "RMS Level", "RMS Variance"])
+    return pd.DataFrame(tmp, columns=["Start", "End", "Peak Level", "Dynamic Range", "RMS Level", "RMS Variance", "Zero Crossing Rate"])
 
 # Assign labels from ground truth to windows
 def assignLabels(values, labels):
@@ -125,7 +139,7 @@ def assignLabels(values, labels):
     return result
 
 # Uncomment if you want cache cleared before EACH call to script
-# librosa.cache.clear()
+#librosa.cache.clear()
 
 # sys.argv[1] = .wav file
 # sys.argv[2] = frames in slice
@@ -133,7 +147,8 @@ def assignLabels(values, labels):
 labels, absStart, absEnd = readLabels(sys.argv[3])
 audio, sampleRate, hopLength = loadAudio(sys.argv[1], int(sys.argv[2]), absStart, absEnd)
 meanRMS, varianceRMS, peak, dynamic, timeIntervals = calculateValues(audio, int(sys.argv[2]), hopLength, sampleRate, absStart)
-values = createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals)
+zeroCrossings = zeroCross(sys.argv[1], absStart, absEnd, hopLength)
+values = createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals, zeroCrossings)
 
 labeledValues = assignLabels(values, labels)
 labeledValues.to_csv("data.csv")
