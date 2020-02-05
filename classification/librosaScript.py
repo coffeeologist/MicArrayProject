@@ -5,7 +5,7 @@ os.environ['LIBROSA_CACHE_DIR'] = '/tmp/librosa_cache'
 os.environ['LIBROSA_CACHE_LEVEL'] = '20'
 import librosa
 import numpy as np
-
+import operator
 import pandas as pd
 import altair as alt
 
@@ -94,20 +94,23 @@ def createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals, zeroCros
 def assignLabels(values, labels):
     result = values
     result["Label"] = ""
-    
+
+    k = 0
     for i in range(result.shape[0]):
         winStart = values.at[i, "Start"]
         winEnd = values.at[i, "End"]
 
         composition = {}
-        for indexSol, rowSol in labels.iterrows():
-            labStart = float(rowSol['Start'])
-            labEnd = float(rowSol['End'])
-            lab = rowSol['Label'][0:1]
+        while k < len(labels):
+            labStart = float(labels.iloc[k]['Start'])
+            labEnd = float(labels.iloc[k]['End'])
+            lab = labels.iloc[k]['Label'][0:1]
 
             if (winStart < labStart and winEnd < labStart):
+                k += 1
                 break
             if (winStart > labStart and winStart > labEnd):
+                k += 1
                 continue
 
             if(labStart <= winStart and winEnd <= labEnd):
@@ -126,6 +129,7 @@ def assignLabels(values, labels):
                 else:
                     assert((labEnd-labStart)/(winEnd-winStart) >= 0)
                     composition[lab] = (labEnd-labStart)/(winEnd-winStart)
+                k+=1
             elif (winStart < labStart):
                 if lab in composition:
                     currentt = composition.get(lab)
@@ -135,6 +139,7 @@ def assignLabels(values, labels):
                 else:
                     assert((winEnd-labStart)/(winEnd-winStart) >= 0)
                     composition[lab] = (winEnd-labStart)/(winEnd-winStart)
+                break
             elif (winEnd > labEnd):
                 if lab in composition:
                     currentt = composition.get(lab)
@@ -144,14 +149,13 @@ def assignLabels(values, labels):
                 else:
                     assert((labEnd-winStart)/(winEnd-winStart) >= 0)
                     composition[lab] = (labEnd-winStart)/(winEnd-winStart)
-        
-            import operator
-            majority = max(composition, key = composition.get)
+                k+=1
+        if len(composition) != 0:
+            majority = max(composition, key=composition.get)
             if((majority == "D") or (majority == "A")):
                 result.at[i, "Label"] = "H"
             else:
                 result.at[i, "Label"] = majority
-
     return result
 
 # Uncomment if you want cache cleared before EACH call to script
