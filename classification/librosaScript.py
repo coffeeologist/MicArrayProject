@@ -85,7 +85,7 @@ def createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals, zeroCros
     pad = lambda a, i: a[0: i] if a.shape[0] > i else np.hstack((a, np.zeros(i - a.shape[0])))
     zeroCrossings = pad(zeroCrossings, len(varianceRMS))
     
-    tmp = np.array([start, end, peak, dynamic, meanRMS, varianceRMS, zeroCrossings])
+    tmp = np.array([start, end, peak, dynamic, meanRMS, varianceRMS, zeroCrossings]) 
     tmp = np.transpose(tmp)
 
     return pd.DataFrame(tmp, columns=["Start", "End", "Peak Level", "Dynamic Range", "RMS Level", "RMS Variance", "Zero Crossing Rate"])
@@ -95,46 +95,62 @@ def assignLabels(values, labels):
     result = values
     result["Label"] = ""
     
-    current = 0
     for i in range(result.shape[0]):
         winStart = values.at[i, "Start"]
         winEnd = values.at[i, "End"]
-        labStart = labels.at[current, "Start"]
-        labEnd = labels.at[current, "End"]
-        assert(labStart <= winStart)
 
-        # Window completely inside of label
-        if(winEnd <= labEnd):
-            if((labels.at[current, "Label"][0] == "D") or 
-               (labels.at[current, "Label"][0] == "A")):
-               result.at[i, "Label"] = "H"
-            else:
-                result.at[i, "Label"] = labels.at[current, "Label"][0]
-        else:
-            partitions = []
-            while(winEnd > labEnd):
-                interval = 0.0
-                if(labStart <= winStart):
-                    interval = labEnd - winStart
+        composition = {}
+        for indexSol, rowSol in labels.iterrows():
+            labStart = float(rowSol['Start'])
+            labEnd = float(rowSol['End'])
+            lab = rowSol['Label'][0:1]
+
+            if (winStart < labStart and winEnd < labStart):
+                break
+            if (winStart > labStart and winStart > labEnd):
+                continue
+
+            if(labStart <= winStart and winEnd <= labEnd):
+                if((lab == "D") or (lab == "A")):
+                    result.at[i, "Label"] = "H"
                 else:
-                    interval = labEnd - labStart
-                partitions.append((interval, labels.at[current, "Label"]))
-                
-                current += 1
-                labStart = labels.at[current, "Start"]
-                labEnd = labels.at[current, "End"]       
-                # Make sure to get final overlap (window hangs into right label)
-                if (winEnd > labEnd):
-                    partitions.append((winEnd - labStart, labels.at[current, "Label"]))
-            
-            # Final label assigned is simply largest part of window (no aggregation of same labels occur)
-            from operator import itemgetter
-            majority = max(partitions, key=itemgetter(0))[1]
-            if((majority[0] == "D") or 
-               (majority[0] == "A")):
-               result.at[i, "Label"] = "H"
+                    result.at[i, "Label"] = lab
+                break
+
+            elif (winStart < labStart and winEnd > labEnd):
+                if lab in composition:
+                    currentt = composition.get(lab)
+                    assert((labEnd-labStart)/(winEnd-winStart) >= 0)
+                    currentt += (labEnd-labStart)/(winEnd-winStart)
+                    composition[lab] = currentt
+                else:
+                    assert((labEnd-labStart)/(winEnd-winStart) >= 0)
+                    composition[lab] = (labEnd-labStart)/(winEnd-winStart)
+            elif (winStart < labStart):
+                if lab in composition:
+                    currentt = composition.get(lab)
+                    assert((winEnd-labStart)/(winEnd-winStart) >= 0)
+                    currentt += (winEnd-labStart)/(winEnd-winStart)
+                    composition[lab] = currentt
+                else:
+                    assert((winEnd-labStart)/(winEnd-winStart) >= 0)
+                    composition[lab] = (winEnd-labStart)/(winEnd-winStart)
+            elif (winEnd > labEnd):
+                if lab in composition:
+                    currentt = composition.get(lab)
+                    currentt += (labEnd-winStart)/(winEnd-winStart)
+                    assert((labEnd-winStart)/(winEnd-winStart) >= 0)
+                    composition[lab] = currentt
+                else:
+                    assert((labEnd-winStart)/(winEnd-winStart) >= 0)
+                    composition[lab] = (labEnd-winStart)/(winEnd-winStart)
+        
+            import operator
+            majority = max(composition, key = composition.get)
+            if((majority == "D") or (majority == "A")):
+                result.at[i, "Label"] = "H"
             else:
-                result.at[i, "Label"] = majority[0]
+                result.at[i, "Label"] = majority
 
     return result
 
@@ -151,4 +167,4 @@ zeroCrossings = zeroCross(sys.argv[1], absStart, absEnd, hopLength)
 values = createDataFrame(meanRMS, varianceRMS, peak, dynamic, timeIntervals, zeroCrossings)
 
 labeledValues = assignLabels(values, labels)
-labeledValues.to_csv("data.csv")
+labeledValues.to_csv("data-new.csv")
